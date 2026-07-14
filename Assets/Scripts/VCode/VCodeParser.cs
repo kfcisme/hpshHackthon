@@ -30,8 +30,8 @@ namespace GlitchCompiler.VCode
             if(first.Type==TokenType.System) { Consume(TokenType.Dot,"SYSTEM 後需要 '.'。"); Consume(TokenType.Reset,"只支援 SYSTEM.RESET()。"); Consume(TokenType.LeftParen,"RESET 後需要 '('。"); Consume(TokenType.RightParen,"RESET 後需要 ')'。"); Consume(TokenType.Semicolon,"指令後需要 ';'。"); return new CommandNode { Token=first,Name="SYSTEM.RESET" }; }
             if (!IsCallable(first.Type)) { Error(first,"預期指令、函數呼叫或控制結構。"); Synchronize(); return new CommandNode { Token=first,Name="INVALID" }; }
             Consume(TokenType.LeftParen,"指令名稱後需要 '('。"); var args=Arguments(); Consume(TokenType.RightParen,"指令參數後需要 ')'。"); Consume(TokenType.Semicolon,"指令後需要 ';'。");
-            string name=first.Lexeme.ToUpperInvariant(); bool command=first.Type!=TokenType.Identifier;
-            if(command) return new CommandNode { Token=first,Name=name,Arguments=args }; return new CallNode { Token=first,Name=first.Lexeme,Arguments=args };
+            string callableName=first.Lexeme.ToUpperInvariant(); bool command=first.Type!=TokenType.Identifier;
+            if(command) return new CommandNode { Token=first,Name=callableName,Arguments=args }; return new CallNode { Token=first,Name=first.Lexeme,Arguments=args };
         }
         private List<ExpressionNode> Arguments() { var args=new List<ExpressionNode>(); if(!Check(TokenType.RightParen)) do { args.Add(Expression()); } while(Match(TokenType.Comma)); return args; }
         private ExpressionNode Expression() => Equality();
