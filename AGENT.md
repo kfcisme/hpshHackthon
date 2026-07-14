@@ -1,5 +1,12 @@
 # AGENT.md - 《異變編譯器：Glitch_Compiler》開發協作指南
 
+## 協作接口規範（2026-07-14）
+
+* **關卡流程唯一入口：** `LevelSessionController` 是關卡生命週期的唯一協調者。UI、V-Code 與渲染模組不得直接控制 `GameLoopController`、`LevelTimer` 或 `AnomalyManager`。
+* **模組接線方式：** V-Code／渲染在成功執行後，分別呼叫 `SubmitSystemCommands(...)` 與 `SubmitRenderedCanvas(...)`；UI 完成後以 `ConfigureAnomalyContext(...)` 注入讀寫程式碼、異變提示與計時器等回呼。
+* **事件責任：** 關卡開始、計時更新、階段改變、重合度改變、異變與勝敗結果一律由 `EventBus` 發布，UI 僅訂閱與呈現，不持有或修改遊戲規則。
+* **資料寫入時機：** 僅 `LevelSessionController` 可在成功通關時呼叫玩家紀錄寫入；失敗、重新編譯與異變解決不得直接寫入存檔。
+
 ## 1. 專案概述 (Project Overview)
 * **遊戲名稱：** 《異變編譯器》(Glitch Compiler)
 * **遊戲類型：** 2D 編程解謎 (Coding Puzzle) + 異變尋錯 (Anomaly Detection)
