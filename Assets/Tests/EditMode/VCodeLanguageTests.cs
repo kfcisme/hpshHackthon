@@ -1,0 +1,3 @@
+using NUnit.Framework;
+using GlitchCompiler.VCode;
+namespace GlitchCompiler.Tests { public sealed class VCodeLanguageTests { [Test] public void ParsesAndExecutesRecursiveFunction(){const string code="FUNC line(n) { IF(n <= 0) { MOVE(1); } ELSE { line(n - 1); } } line(2);";var parsed=new VCodeParser().Parse(code);Assert.That(parsed.Success,Is.True);var result=new VCodeInterpreter().Execute(parsed.Program);Assert.That(result.Success,Is.True);Assert.That(result.DrawCommands.Count,Is.EqualTo(1));} [Test] public void RejectsUnterminatedString(){var result=new VCodeParser().Parse("COLOR(\"#FFFFFF);");Assert.That(result.Success,Is.False);} } }

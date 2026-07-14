@@ -1,0 +1,8 @@
+using System;
+using System.Collections.Generic;
+using GlitchCompiler.Core;
+using GlitchCompiler.Data;
+using GlitchCompiler.Level;
+using GlitchCompiler.VCode;
+using UnityEngine;
+namespace GlitchCompiler.Anomalies { public sealed class AnomalyManager:MonoBehaviour { private readonly Dictionary<AnomalyType,IAnomaly> catalog=new Dictionary<AnomalyType,IAnomaly>(); private IAnomaly active; private float nextTrigger; private bool shield; private bool reset; private AnomalyContext context; public void Initialize(AnomalyContext value){context=value;catalog[AnomalyType.GhostComment]=new GhostCommentAnomaly();catalog[AnomalyType.SyntaxShift]=new SyntaxShiftAnomaly();catalog[AnomalyType.CanvasMask]=new CanvasMaskAnomaly();catalog[AnomalyType.ControlInversion]=new ControlInversionAnomaly();context.ShieldEnabled=()=>shield;context.ResetReceived=()=>reset;} public void AcceptSystemCommands(IEnumerable<SystemCommand> commands){shield=false;reset=false;foreach(var command in commands){if(command.Type==SystemCommandType.Shield)shield=command.BoolValue;if(command.Type==SystemCommandType.Reset)reset=true;}} public void TryTrigger(IReadOnlyList<AnomalyRule> rules,LevelPhase phase){if(active!=null||Time.time<nextTrigger)return;foreach(var rule in rules)if((int)rule.EarliestPhase<=(int)phase&&UnityEngine.Random.value<=rule.TriggerChance){active=catalog[rule.Type];active.OnTrigger(context);nextTrigger=Time.time+rule.CooldownSeconds;ApplicationBootstrap.Events.Publish(new AnomalyTriggered(active.Id));break;}} private void Update(){if(active==null||!active.CheckResolved())return;var resolved=active;active.OnResolve();active=null;ApplicationBootstrap.Events.Publish(new AnomalyResolved(resolved.Id));} } }

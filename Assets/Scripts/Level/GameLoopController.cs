@@ -1,0 +1,4 @@
+using GlitchCompiler.Core;
+using GlitchCompiler.Data;
+using UnityEngine;
+namespace GlitchCompiler.Level { public sealed class GameLoopController:MonoBehaviour { [SerializeField] private LevelTimer timer; public GameState State { get; private set; } public LevelPhase Phase { get; private set; } public void Begin(LevelDefinition level) { State=GameState.Playing;Phase=LevelPhase.Safe;timer.StartTimer(level.TimeLimitSeconds);timer.Expired+=Lose; } public void UpdatePhase(float normalizedElapsed){Phase=normalizedElapsed<.33f?LevelPhase.Safe:normalizedElapsed<.7f?LevelPhase.Flow:LevelPhase.Crisis;} public void Win(float match){if(State!=GameState.Playing)return;State=GameState.Won;timer.Pause(true);ApplicationBootstrap.Events.Publish(new LevelFinished(true,match));} public void Lose(){if(State!=GameState.Playing)return;State=GameState.Lost;ApplicationBootstrap.Events.Publish(new LevelFinished(false,0));} } }

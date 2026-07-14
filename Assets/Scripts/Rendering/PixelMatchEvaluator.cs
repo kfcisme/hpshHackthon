@@ -1,0 +1,2 @@
+using UnityEngine;
+namespace GlitchCompiler.Rendering { public static class PixelMatchEvaluator { public static float Evaluate(Texture2D rendered,Texture2D target) { if(rendered==null||target==null||rendered.width!=target.width||rendered.height!=target.height) return 0; var a=rendered.GetPixels32();var b=target.GetPixels32();int valid=0,matched=0;for(int i=0;i<a.Length;i++){if(b[i].a==0)continue;valid++;int delta=Mathf.Abs(a[i].r-b[i].r)+Mathf.Abs(a[i].g-b[i].g)+Mathf.Abs(a[i].b-b[i].b);if(delta<=36)matched++;}return valid==0?0f:(float)matched/valid*100f;} } }

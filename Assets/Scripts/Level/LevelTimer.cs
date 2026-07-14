@@ -1,0 +1,3 @@
+using System;
+using UnityEngine;
+namespace GlitchCompiler.Level { public sealed class LevelTimer:MonoBehaviour { public float Remaining { get; private set; } public bool IsRunning { get; private set; } public event Action<float> Changed; public event Action Expired; public void StartTimer(float seconds) { Remaining=seconds;IsRunning=true;Changed?.Invoke(Remaining); } public void Pause(bool value)=>IsRunning=!value; public void Add(float seconds) { Remaining+=seconds;Changed?.Invoke(Remaining); } public void SetMultiplier(float value)=>multiplier=Mathf.Max(0,value); private float multiplier=1; private void Update(){if(!IsRunning)return;Remaining-=Time.deltaTime*multiplier;Changed?.Invoke(Remaining);if(Remaining<=0){Remaining=0;IsRunning=false;Expired?.Invoke();}} } }
