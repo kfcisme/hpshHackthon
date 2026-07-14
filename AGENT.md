@@ -3,7 +3,7 @@
 ## 協作接口規範（2026-07-14）
 
 * **關卡流程唯一入口：** `LevelSessionController` 是關卡生命週期的唯一協調者。UI、V-Code 與渲染模組不得直接控制 `GameLoopController`、`LevelTimer` 或 `AnomalyManager`。
-* **模組接線方式：** V-Code／渲染在成功執行後，分別呼叫 `SubmitSystemCommands(...)` 與 `SubmitRenderedCanvas(...)`；UI 完成後以 `ConfigureAnomalyContext(...)` 注入讀寫程式碼、異變提示與計時器等回呼。
+* **模組接線方式：** V-Code／渲染每次 Compile 後只可呼叫 `SubmitCompilation(CompilationSubmission)` 一個接口；UI 完成後以 `ConfigureAnomalyContext(...)` 注入讀寫程式碼、異變提示與計時器等回呼。詳細輸入契約見 `Docs/LevelSession-Integration.md`。
 * **事件責任：** 關卡開始、計時更新、階段改變、重合度改變、異變與勝敗結果一律由 `EventBus` 發布，UI 僅訂閱與呈現，不持有或修改遊戲規則。
 * **資料寫入時機：** 僅 `LevelSessionController` 可在成功通關時呼叫玩家紀錄寫入；失敗、重新編譯與異變解決不得直接寫入存檔。
 * **文件同步：** 公開整合介面、V-Code 指令與測試案例異動時，必須同步更新 `docs/ARCHITECTURE.md`、`docs/V-CODE.md` 與 `docs/TEST_CASES.md`。
