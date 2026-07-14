@@ -14,7 +14,7 @@
 2. 建立 `Bootstrap`、`MainMenu`、`Level` 三個場景，並依序加入 Build Settings。
 3. 在 `Level` 場景建立並綁定 `LevelSessionController`、`IDEEditorController`、`CanvasRenderer`、`LevelLoader`、`GameLoopController`、`LevelTimer`、`LevelCompletionEvaluator` 與 `AnomalyManager`。
 4. 將 `CanvasRenderer` 的 `RawImage`、IDE 的 `TMP_InputField` 與 `LevelSessionController` 參考指向對應元件。
-5. 建立 `LevelDefinition` 與 512×512 目標圖，然後呼叫 `LevelSessionController.BeginLevel(index)`。
+5. 建立 `LevelDefinition` 與 64×64 透明背景目標圖，並透過 `LevelSessionController.StartLevel(index)` 開始關卡。
 
 ## V-Code 範例
 

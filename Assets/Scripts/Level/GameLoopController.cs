@@ -8,6 +8,7 @@ namespace GlitchCompiler.Level
         [SerializeField] private LevelTimer timer;
         public GameState State { get; private set; } = GameState.Preparing;
         public LevelPhase Phase { get; private set; } = LevelPhase.Safe;
+        private float currentMatch;
 
         private void Awake()
         {
@@ -24,6 +25,7 @@ namespace GlitchCompiler.Level
             if (level == null || timer == null) return;
             State = GameState.Playing;
             Phase = LevelPhase.Safe;
+            currentMatch = 0f;
             timer.StartTimer(level.TimeLimitSeconds);
             ApplicationBootstrap.Events?.Publish(new LevelPhaseChanged(Phase));
         }
@@ -56,16 +58,22 @@ namespace GlitchCompiler.Level
         public void Win(float match)
         {
             if (State != GameState.Playing) return;
+            currentMatch = Mathf.Clamp(match, 0f, 100f);
             State = GameState.Won;
             timer.Pause(true);
-            ApplicationBootstrap.Events?.Publish(new LevelFinished(true, match));
+            ApplicationBootstrap.Events?.Publish(new LevelFinished(true, currentMatch));
+        }
+
+        public void SetCurrentMatch(float match)
+        {
+            if (State == GameState.Playing) currentMatch = Mathf.Clamp(match, 0f, 100f);
         }
 
         public void Lose()
         {
             if (State != GameState.Playing) return;
             State = GameState.Lost;
-            ApplicationBootstrap.Events?.Publish(new LevelFinished(false, 0));
+            ApplicationBootstrap.Events?.Publish(new LevelFinished(false, currentMatch));
         }
     }
 }

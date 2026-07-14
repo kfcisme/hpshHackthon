@@ -35,6 +35,11 @@ namespace GlitchCompiler.Rendering
         public Color32[] Pixels => pixels;
         public TurtleState State => state;
 
+        // V-Code uses Cartesian coordinates. (0, 0) is the geometric center
+        // of the canvas; on an even-sized 64x64 texture it lies between the
+        // four central pixel centers.
+        private float CanvasCenter => (Resolution - 1) * 0.5f;
+
         public void Render(IReadOnlyList<DrawCommand> commands)
         {
             Array.Clear(pixels, 0, pixels.Length);
@@ -121,12 +126,14 @@ namespace GlitchCompiler.Rendering
 
         private bool CircleCanTouchCanvas(Vector2 center, float radius, float brushRadius)
         {
+            var min = -CanvasCenter;
+            var max = CanvasCenter;
             var closest = new Vector2(
-                Mathf.Clamp(center.x, 0, Resolution - 1),
-                Mathf.Clamp(center.y, 0, Resolution - 1));
+                Mathf.Clamp(center.x, min, max),
+                Mathf.Clamp(center.y, min, max));
             var farthest = new Vector2(
-                center.x < Resolution * 0.5f ? Resolution - 1 : 0,
-                center.y < Resolution * 0.5f ? Resolution - 1 : 0);
+                center.x < 0f ? max : min,
+                center.y < 0f ? max : min);
             var minimumDistance = Vector2.Distance(center, closest);
             var maximumDistance = Vector2.Distance(center, farthest);
             return radius + brushRadius >= minimumDistance && radius - brushRadius <= maximumDistance;
@@ -149,8 +156,8 @@ namespace GlitchCompiler.Rendering
 
         private bool TryClipLine(ref Vector2 start, ref Vector2 end, float margin)
         {
-            var min = -margin;
-            var max = Resolution - 1 + margin;
+            var min = -CanvasCenter - margin;
+            var max = CanvasCenter + margin;
             var startCode = OutCode(start, min, max);
             var endCode = OutCode(end, min, max);
 
@@ -213,6 +220,7 @@ namespace GlitchCompiler.Rendering
 
         private void DrawBrush(Vector2 center, float radius, Color color)
         {
+            center += new Vector2(CanvasCenter, CanvasCenter);
             var minX = Mathf.Max(0, Mathf.CeilToInt(center.x - radius));
             var maxX = Mathf.Min(Resolution - 1, Mathf.FloorToInt(center.x + radius));
             var minY = Mathf.Max(0, Mathf.CeilToInt(center.y - radius));

@@ -79,6 +79,9 @@ namespace GlitchCompiler.VCode
 
                     for (var index = 0; index < count; index++)
                     {
+                        // Count every iteration, including an empty body. Without
+                        // this, LOOP(large_number) { } can freeze Unity forever.
+                        context.Step();
                         ExecuteBlock(loop.Body, context, output);
                     }
                 }

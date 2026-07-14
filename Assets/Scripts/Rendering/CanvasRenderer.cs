@@ -7,7 +7,6 @@ namespace GlitchCompiler.Rendering
     public sealed class CanvasRenderer : MonoBehaviour
     {
         [SerializeField] private RawImage preview;
-        [SerializeField, Min(1)] private int resolution = 512;
 
         private TurtleRasterizer rasterizer;
 
@@ -28,19 +27,19 @@ namespace GlitchCompiler.Rendering
 
         private void EnsureSurface()
         {
-            if (rasterizer == null || rasterizer.Resolution != resolution)
+            if (rasterizer == null)
             {
-                rasterizer = new TurtleRasterizer(resolution);
+                rasterizer = new TurtleRasterizer(TargetImageLoader.CanvasResolution);
             }
 
-            if (CanvasTexture == null || CanvasTexture.width != resolution || CanvasTexture.height != resolution)
+            if (CanvasTexture == null || CanvasTexture.width != TargetImageLoader.CanvasResolution || CanvasTexture.height != TargetImageLoader.CanvasResolution)
             {
                 if (CanvasTexture != null)
                 {
                     Destroy(CanvasTexture);
                 }
 
-                CanvasTexture = new Texture2D(resolution, resolution, TextureFormat.RGBA32, false)
+                CanvasTexture = new Texture2D(TargetImageLoader.CanvasResolution, TargetImageLoader.CanvasResolution, TextureFormat.RGBA32, false)
                 {
                     filterMode = FilterMode.Point,
                     wrapMode = TextureWrapMode.Clamp

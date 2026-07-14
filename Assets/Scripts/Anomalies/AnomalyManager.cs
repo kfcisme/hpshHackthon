@@ -65,8 +65,9 @@ namespace GlitchCompiler.Anomalies
             {
                 if (rule == null || !rule.Enabled || (rule.TriggerOnce && triggeredOnce.Contains(rule.Type))) continue;
                 if ((int)rule.EarliestPhase > (int)phase || UnityEngine.Random.value > rule.TriggerChance) continue;
-                if (!catalog.TryGetValue(rule.Type, out active)) continue;
+                if (!catalog.TryGetValue(rule.Type, out var candidate) || !candidate.CanTrigger(context)) continue;
                 context.ActiveRule = rule;
+                active = candidate;
                 active.OnTrigger(context);
                 if (rule.TriggerOnce) triggeredOnce.Add(rule.Type);
                 nextTrigger = Time.time + Mathf.Max(0f, rule.CooldownSeconds);

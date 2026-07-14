@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 868b5496f079f4e44903c65c38334e16, type: 3}
+  m_Name: Level_01
+  m_EditorClassIdentifier: Assembly-CSharp::GlitchCompiler.Data.LevelDefinition
+  Id: level-01
+  Title: "\u7B2C\u4E00\u95DC\uFF1A\u6B63\u65B9\u5F62"
+  Tutorial: "\u4F7F\u7528 MOVE \u8207 TURN \u756B\u51FA\u6B63\u65B9\u5F62\u3002"
+  TargetImage: {fileID: 0}
+  StarterCode: "\u8CBC\u4E0A\u4E0B\u9762\u7A0B\u5F0F\nCOLOR(\"white\");\r\nWIDTH(2);\r\nLOOP(4)
+    {\r\n  MOVE(16);\r\n  TURN(90);\r\n}"
+  TimeLimitSeconds: 30
+  PassPercentage: 0
+  Anomalies: []

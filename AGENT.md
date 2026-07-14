@@ -1,92 +1,87 @@
-# AGENT.md - 《異變編譯器：Glitch_Compiler》開發協作指南
+# AGENT.md — 《異變編譯器 / Glitch Compiler》協作指南
 
-## 協作接口規範（2026-07-14）
+## 1. 專案核心：先畫圖，再處理變異
 
-* **關卡流程唯一入口：** `LevelSessionController` 是關卡生命週期的唯一協調者。UI、V-Code 與渲染模組不得直接控制 `GameLoopController`、`LevelTimer` 或 `AnomalyManager`。
-* **模組接線方式：** V-Code／渲染每次 Compile 後只可呼叫 `SubmitCompilation(CompilationSubmission)` 一個接口；UI 完成後以 `ConfigureAnomalyContext(...)` 注入讀寫程式碼、異變提示與計時器等回呼。詳細輸入契約見 `Docs/LevelSession-Integration.md`。
-* **事件責任：** 關卡開始、計時更新、階段改變、重合度改變、異變與勝敗結果一律由 `EventBus` 發布，UI 僅訂閱與呈現，不持有或修改遊戲規則。
-* **資料寫入時機：** 僅 `LevelSessionController` 可在成功通關時呼叫玩家紀錄寫入；失敗、重新編譯與異變解決不得直接寫入存檔。
-* **文件同步：** 公開整合介面、V-Code 指令與測試案例異動時，必須同步更新 `docs/ARCHITECTURE.md`、`docs/V-CODE.md` 與 `docs/TEST_CASES.md`。
-* **Unity 資產協作：** Scene、Prefab、ScriptableObject 與 `.meta` 檔只可由 Unity Editor 修改，並在 PR 說明中標記資產負責人與變更項目。
+《異變編譯器》是一款 Unity 2D 的**視覺化程式繪圖解謎遊戲**。玩家的主要目標不是撰寫一般用途程式，也不是單純找錯；而是以 V-Code 控制海龜畫筆，在畫布上繪製出每一關指定的目標圖形。
 
-## 1. 專案概述 (Project Overview)
-* **遊戲名稱：** 《異變編譯器》(Glitch Compiler)
-* **遊戲類型：** 2D 編程解謎 (Coding Puzzle) + 異變尋錯 (Anomaly Detection)
-* **核心玩法：** 玩家必須在左側的虛擬 IDE（整合開發環境）中編寫「極簡視覺化程式碼 (V-Code)」，在右側 2D 畫布中繪製出與目標圖形重合度達 **95%** 以上的圖案以通關。
-* **主要挑戰：** 遊戲進行中會隨機觸發「異變 (Anomalies)」，暫時干擾程式碼編輯器、畫布或操作規則。玩家必須在有限時間內切換到 Debug/除錯模式解決異變，兼顧「邏輯思考」與「即時應變」。
+每一關的基本流程如下：
 
----
+```text
+讀取關卡目標與 Starter Code
+→ 玩家修改／撰寫 V-Code
+→ Compile：解析、執行、畫到畫布
+→ 比較畫布與 TargetImage 的重合度
+→ 達到 PassPercentage 即通關
+```
 
-## 2. AI 協作角色設定 (AI Persona & Role)
-當 AI（ChatGPT）讀取此專案時，必須扮演 **資深遊戲架構師與系統開發工程師 (Senior Game Architect & System Developer)**。
-* **回答原則：** 提供的程式碼或設計必須模組化、高內聚低耦合，並且隨時考慮「異變機制」如何注入現有系統。
-* **風格語調：** 專業、清晰，聚焦於易理解的程式解謎體驗與變異機制的可讀性。
+關卡有倒數時間。玩家繪圖期間，系統會依關卡規則與 Safe / Flow / Crisis 階段**隨機觸發變異**。變異是第二層壓力：它暫時干擾程式碼、畫面或操作，玩家需要先排除它，才能穩定地繼續完成圖形；它不能取代「用 V-Code 畫出目標圖」這個主要勝利條件。
 
----
+## 2. 玩法與通關規則
 
-## 3. 核心系統架構規格 (Core System Architecture)
+- 關卡資料由 `LevelDefinition` 提供目標圖 `TargetImage`、初始程式 `StarterCode`、時限、通關門檻與可觸發的變異規則。
+- 畫布固定為 64×64，V-Code 的邏輯座標以畫布幾何中心 `(0, 0)` 為原點；初始方向向右、顏色白色、筆寬 2。
+- V-Code 輸出的 `DrawCommand` 交由 `TurtleRasterizer` 光柵化為畫布，再以 `PixelMatchEvaluator` 計算與目標圖的重合百分比。
+- 重合度以目標圖的非透明像素為基準；目標外額外畫上的像素會扣分。目標圖必須是可讀取的 64×64、且 `PassPercentage` 大於 0，達到門檻才通關。
+- 時間歸零即失敗；暫停、勝利與失敗狀態不可再推進關卡或觸發變異。
+- 成功通關後才寫入玩家最佳成績與解鎖進度。
 
-專案主要由以下四大核心模組組成，AI 在設計與擴充功能時必須嚴格遵守模組邊界：
+## 3. V-Code：服務於繪圖
 
-| 模組名稱 | 負責職責 | 輸入/輸出規格 |
-| :--- | :--- | :--- |
-| **1. V-Code 解析器**<br>`VCodeParser` / `VCodeInterpreter` | 讀取 IDE 文字，解析與驗證語法，輸出繪圖與系統命令。 | **輸入：** String (Raw Code)<br>**輸出：** `ExecutionResult`（`List<DrawCommand>`、`List<SystemCommand>`、Diagnostics） |
-| **2. 畫布渲染引擎**<br>`CanvasRenderer` / `TurtleRasterizer` | 接收繪圖指令並在右側 2D 畫布上光柵化圖形；像素重合度由 `LevelCompletionEvaluator` 計算。 | **輸入：** `List<DrawCommand>`<br>**輸出：** Rendered Canvas (`Texture2D`) |
-| **3. 異變管理系統**<br>`AnomalyManager` | 監控計時器與玩家狀態，負責異變事件的生成、注入（暫時調整 UI、畫布或輸入規則）、驗證解除條件與倒數懲罰。 | **輸入：** Game State, Timer<br>**輸出：** `AnomalyEvent`, UI Change Effects |
-| **4. 遊戲流程控制器**<br>`GameLoopController` | 控制關卡三階段（安全期 -> 流暢期 -> 危機期），管理遊戲總計時器 (Timer) 與勝負判定。 | **輸入：** Player Actions, System Events<br>**輸出：** Level State (Win/Lose/Pause) |
+V-Code 的設計目的，是讓玩家用可學習、可推理的程式結構產生圖形。產生關卡、教學、測試或範例時，只能使用已支援的語法，並確保可以畫出目標圖。
 
----
+| 類別 | 指令／結構 | 用途 |
+| --- | --- | --- |
+| 移動 | `MOVE(distance)`、`TURN(angle)` | 移動畫筆並畫線、改變方向。 |
+| 筆刷 | `COLOR(value)`、`WIDTH(pixels)` | 改變線條顏色與寬度。 |
+| 形狀 | `CIRCLE(radius)`、`RECT(width, height)` | 在目前位置畫圓或矩形。 |
+| 程式結構 | `LET`、`FUNC`、`IF / ELSE`、`LOOP` | 將繪圖邏輯抽象、重複與條件化。 |
+| 變異應對 | `SHIELD(boolean)`、`SYSTEM.RESET()` | 傳送系統命令給變異系統，不直接改變勝負。 |
 
-## 4. 遊戲機制實作規範 (Mechanics Guidelines)
+完整語言行為以 `Docs/V-CODE.md` 與 `VCodeParser` / `VCodeInterpreter` 的實作為準。
 
-### A. 極簡指令集 (V-Code Spec)
-AI 在生成關卡目標或測試用例時，僅能使用以下支援的語法結構：
-* **基礎移動：** `MOVE(distance)`, `TURN(angle)`
-* **外觀控制：** `COLOR(hex_or_name)`, `WIDTH(pixels)`
-* **形狀函數：** `CIRCLE(radius)`, `RECT(width, height)`
-* **邏輯結構：** `LOOP(count) { ... }`, `IF(condition) { ... } ELSE { ... }`
-* **系統指令：** `SHIELD(boolean)`, `SYSTEM.RESET()`
+## 4. 變異設計原則
 
-### B. 異變事件表 (Anomaly Registry)
-新增異變功能時，必須實作 `IAnomaly` 介面，並包含以下三個核心生命週期：
-1. `OnTrigger()`: 定義異變如何表現（如：插入干擾文字、調整畫布顯示、反轉控制）。
-2. `CheckResolved()`: 監聽玩家行為，回傳 `boolean` 判斷異變是否已被解決。
-3. `OnResolve()`: 消除視覺干擾，停止計時器倒數懲罰，並給予玩家時間獎勵（預設增加 **10 秒**）。
-<!-- 
-#### 已註冊之異變標準規範：
-* **干擾註解 (Ghost Comments)：** 自動在編輯器插入額外文字，需透過 `Ctrl+Y` 或 `Delete` 移除。
-* **語法重載 (Syntax Shift)：** 關鍵字變異（例：`TURN` 變 `BURN`），需用全域替代 `Ctrl+F` 修正。
-* **畫布遮罩 (Visual Deadlock)：** 畫布出現暫時遮罩，需在代碼最首行新增 `SHIELD(true);` 解除。
-* **鎖定反轉 (Control Inversion)：** 鍵盤輸入反轉且計時加速，需在代碼輸入 `SYSTEM.RESET();` 或點擊畫面防護罩。 -->
+變異只能在關卡進行中造成**可理解、可解除、可逆**的阻礙；解除後玩家應能回到原本的繪圖任務。它們的目標是讓玩家在倒數中調整與除錯，不應永久毀損關卡資料、目標圖或玩家存檔。
 
----
+目前的變異類型：
 
-## 5. 代碼開發規範 (Coding Standards)
+- `GhostComment`：在程式碼加入干擾註解；玩家刪除後解除。
+- `SyntaxShift`：把 `TURN` 改為 `BURN`；玩家以搜尋取代或手動修正後解除。
+- `CanvasMask`：以畫面覆蓋干擾視野；玩家送出 `SHIELD(true)` 後解除。
+- `ControlInversion`：以控制干擾與計時倍率施壓；玩家送出 `SYSTEM.RESET()` 後解除。
 
-* **狀態分離：** 遊戲邏輯（Game Logic）與視覺渲染（Visual Rendering）必須徹底分離。異變效果應優先以 UI Overlay 或可逆的渲染效果呈現，避免永久破壞核心數據（除非是編輯器文字干擾類異變）。
-* **事件驅動：** 異變的觸發與解除應採用「事件發布/訂閱模式 (Event Bus / Observer Pattern)」，避免 `GameLoopController` 與具體 UI 產生深度依賴。
-* **可配置性：** 所有關卡的設定（目標圖形參數、限制時間、會觸發的異變類型與機率）必須以 JSON 或 ScriptableObject / 資料表的形式儲存，避免硬編碼 (Hardcoding)。
-### 資料存儲與玩家狀態規範 (Data Persistence & Player State)
-* **動態與靜態資料分離 (Runtime vs. Persistent Data)：** 遊戲運行時的短暫狀態（例如：當前關卡的剩餘時間、當前畫布重合度、一次性防禦罩是否觸發）嚴禁寫入持久化資料夾。只有在「關卡結束 (Level Completed)」或「玩家在商店完成交易」時，才觸發 `PlayerProfileManager.Save()`。
-* **序列化格式 (Serialization)：** 玩家存檔結構應設計為可序列化的資料類別（如 `PlayerData` DTO），本地開發調試時優先使用 **JSON** 格式保存，方便開發者檢查與修改進度；正式發布版 (Release Build) 再透過介面切換為二進制加密儲存 (AES/Binary Formatter) 以防作弊。
-* **解耦外掛與戰鬥系統：** `PlayerProfileManager` 只負責提供「玩家目前裝備了哪些防毒外掛」的資料結構（Data List），具體外掛如何防禦異變，由 `AnomalyManager` 在關卡初始化時向 `PlayerProfileManager` 讀取並註冊對應效果，避免存儲系統過度干涉關卡運作。
----
+每個新變異必須實作 `IAnomaly` 的 `OnTrigger`、`CheckResolved`、`OnResolve`、`OnCleanup`。變異的觸發階段、機率、冷卻、是否只觸發一次、解除獎勵秒數與倒數倍率，都必須由 `AnomalyRule` 配置，而非硬編碼在關卡流程中。
 
-## 6. 當前開發里程碑與代辦事項 (Roadmap & Tasks)
+## 5. 架構責任與整合邊界
 
-- [ ] **Phase 1: 核心原型 (MVP)**
-    - [ ] 實作左側文字編輯器 UI 與即時文本監聽。
-    - [x] 完成 `VCodeParser` 基礎指令解析（`MOVE`, `TURN`, `COLOR`, `LOOP`）。
-    - [x] 實作 `CanvasRenderer` 繪圖邏輯與像素對比算法（重合度判定）。
-- [ ] **Phase 2: 異變機制接入**
-    - [x] 建立 `AnomalyManager` 與倒數計時系統。
-    - [ ] 實作第一個異變：【惡意註解】與其消除判定。
-    - [ ] 實作第二個異變：【語法重載】與全域搜尋替代機制。
-- [ ] **Phase 3: 關卡與回饋效果**
-    - [ ] 設計清楚的畫布變異提示、解除回饋與音效提示系統。
-    - [ ] 製作前 3 個教學與進階關卡 JSON 資料。
-- [ ] **Phase 4: 玩家系統與局外養成 (Player & Progression)**
-    - [ ] 設計 `PlayerData` 資料結構（關卡評分紀錄、貨幣數量、擁有物品 ID 列表）。
-    - [x] 實作 `PlayerProfileManager` 的本地 Save/Load JSON 讀寫功能。
-    - [ ] 實作「防毒商店 / IDE 升級介面 (Shop UI)」，並串接扣款與物品解鎖邏輯。
-    - [ ] 關卡初始化時，支援讀取玩家已裝備的外掛（如：自動注入 `Firewall.vbx` 抵擋第一次編輯器侵蝕）。
+```text
+IDEEditorController
+  → VCodeParser / VCodeInterpreter
+  → DrawCommand + SystemCommand
+  → CanvasRenderer / TurtleRasterizer
+  → Texture2D
+  → LevelSessionController
+  → 重合度判定、關卡狀態、異變與存檔
+  → EventBus
+  → UI 顯示
+```
+
+- `VCode`：解析與執行玩家程式，輸出繪圖與系統命令；不得決定通關、失敗或存檔。
+- `Rendering`：只把 `DrawCommand` 畫成 Texture；不得修改計時器或遊戲狀態。
+- `LevelSessionController`：關卡生命週期的唯一協調者，負責接收一次 Compile 的結果、重合度、勝負與通關紀錄。
+- `AnomalyManager`：依關卡規則觸發、追蹤與清理變異；不直接寫入玩家存檔。
+- `UI`：收集輸入、顯示程式碼／畫布／計時／結果與變異提示；僅訂閱 `EventBus`，不持有遊戲規則。
+
+V-Code 與渲染在每次 Compile 後，應只透過 `LevelSessionController.SubmitCompilation(CompilationSubmission)` 將結果提交給關卡流程。詳細契約見 `Docs/LevelSession-Integration.md`。
+
+## 6. 協作規範
+
+- 改動公開整合介面、V-Code 指令或測試案例時，同步更新 `Docs/ARCHITECTURE.md`、`Docs/V-CODE.md` 與 `Docs/TEST_CASES.md`。
+- 新增關卡時，以透明背景的目標圖為基準，確保圖形能由現有 V-Code 指令合理產生，並先驗證無變異的繪圖閉環，再加入變異。
+- 遊戲邏輯與視覺呈現需分離；變異效果優先使用可清理的 Overlay、輸入或渲染效果。
+- Scene、Prefab、ScriptableObject 與 `.meta` 僅能透過 Unity Editor 修改；變更時需註記資產負責範圍。
+- 新功能或修正必須補上相應測試，至少涵蓋：V-Code 執行、繪圖結果、通關判定，或變異觸發／解除的其中一項。
+
+## 7. 當前優先目標
+
+先完成並驗證一個最小可玩關卡：玩家輸入 V-Code 畫出單一目標圖形、畫布更新並判定重合度；在倒數期間至少出現一種可解除變異；通關或時間到後正確呈現結果並處理進度。後續所有功能都應強化這條核心體驗。

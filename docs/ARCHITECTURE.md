@@ -19,10 +19,9 @@ IDEEditorController
 
 | 方法 | 呼叫端 | 行為 |
 | --- | --- | --- |
-| `BeginLevel(int)` | 關卡選擇 UI | 載入關卡並啟動計時與流程狀態 |
+| `StartLevel(int)` | 關卡選擇 UI | 驗證解鎖狀態後載入關卡並啟動計時與流程狀態 |
 | `ConfigureAnomalyContext(AnomalyContext)` | Level UI 組裝 | 注入異變讀寫程式碼、提示與計時器回呼 |
-| `SubmitSystemCommands(IEnumerable<SystemCommand>)` | IDE／V-Code | 將 `SHIELD`、`SYSTEM.RESET` 送交異變系統 |
-| `SubmitRenderedCanvas(Texture2D)` | IDE／Rendering | 計算重合度、發布事件並判定通關 |
+| `SubmitCompilation(CompilationSubmission)` | IDE／V-Code／Rendering | 一次接收編譯、繪圖與系統命令結果，處理異變、重合度與通關判定 |
 
 ## 模組責任
 

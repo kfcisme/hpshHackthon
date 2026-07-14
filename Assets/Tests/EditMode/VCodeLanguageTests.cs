@@ -1,7 +1,11 @@
 using System.Collections.Generic;
+using GlitchCompiler.Anomalies;
+using GlitchCompiler.Data;
+using GlitchCompiler.Level;
 using GlitchCompiler.Rendering;
 using GlitchCompiler.VCode;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace GlitchCompiler.Tests
 {
@@ -101,6 +105,17 @@ namespace GlitchCompiler.Tests
         }
 
         [Test]
+        public void RejectsAnEmptyLoopThatExceedsTheInstructionLimit()
+        {
+            var parsed = new VCodeParser().Parse("LOOP(10001) { }");
+            var result = new VCodeInterpreter().Execute(parsed.Program);
+
+            Assert.That(parsed.Success, Is.True);
+            Assert.That(result.Success, Is.False);
+            Assert.That(result.Diagnostics, Is.Not.Empty);
+        }
+
+        [Test]
         public void EmitsSystemCommands()
         {
             var parsed = new VCodeParser().Parse("SHIELD(true); SYSTEM.RESET();");
@@ -129,8 +144,8 @@ namespace GlitchCompiler.Tests
 
             rasterizer.Render(new List<DrawCommand>());
 
-            Assert.That(rasterizer.State.Position.x, Is.EqualTo(150));
-            Assert.That(rasterizer.State.Position.y, Is.EqualTo(150));
+            Assert.That(rasterizer.State.Position.x, Is.EqualTo(0));
+            Assert.That(rasterizer.State.Position.y, Is.EqualTo(0));
         }
 
         [Test]
@@ -151,8 +166,68 @@ namespace GlitchCompiler.Tests
             Assert.DoesNotThrow(() => rasterizer.Render(commands));
             Assert.That(rasterizer.Pixels[32 * 64 + 42].a, Is.GreaterThan(0));
             Assert.That(rasterizer.Pixels[32 * 64 + 48].a, Is.GreaterThan(0));
-            Assert.That(rasterizer.State.Position.x, Is.EqualTo(42).Within(0.01f));
-            Assert.That(rasterizer.State.Position.y, Is.EqualTo(32).Within(0.01f));
+            Assert.That(rasterizer.State.Position.x, Is.EqualTo(10).Within(0.01f));
+            Assert.That(rasterizer.State.Position.y, Is.EqualTo(0).Within(0.01f));
+        }
+
+        [Test]
+        public void PenalizesPixelsDrawnOutsideTheTarget()
+        {
+            var target = new Texture2D(64, 64, TextureFormat.RGBA32, false);
+            var rendered = new Texture2D(64, 64, TextureFormat.RGBA32, false);
+            try
+            {
+                target.SetPixel(0, 0, Color.white);
+                target.Apply();
+                rendered.SetPixel(0, 0, Color.white);
+                rendered.SetPixel(1, 0, Color.white);
+                rendered.Apply();
+
+                Assert.That(PixelMatchEvaluator.Evaluate(rendered, target), Is.EqualTo(50f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(target);
+                Object.DestroyImmediate(rendered);
+            }
+        }
+
+        [Test]
+        public void SyntaxShiftCanTriggerForLowercaseTurn()
+        {
+            var code = "turn(90);";
+            var anomaly = new SyntaxShiftAnomaly();
+            var context = new AnomalyContext
+            {
+                ReadCode = () => code,
+                WriteCode = value => code = value,
+                ShowOverlay = (_, __) => { },
+                HideOverlay = () => { }
+            };
+
+            Assert.That(anomaly.CanTrigger(context), Is.True);
+            anomaly.OnTrigger(context);
+            Assert.That(code, Is.EqualTo("BURN(90);"));
+            Assert.That(anomaly.CheckResolved(), Is.False);
+        }
+
+        [Test]
+        public void DoesNotCompleteAConfigurationWithoutATarget()
+        {
+            var gameObject = new GameObject("CompletionEvaluatorTest");
+            var level = ScriptableObject.CreateInstance<LevelDefinition>();
+            try
+            {
+                level.PassPercentage = 1f;
+                var evaluator = gameObject.AddComponent<LevelCompletionEvaluator>();
+
+                Assert.That(evaluator.IsComplete(level, 100f), Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(level);
+                Object.DestroyImmediate(gameObject);
+            }
         }
     }
 }

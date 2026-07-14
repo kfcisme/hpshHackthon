@@ -30,10 +30,12 @@
 | --- | --- | --- | --- | --- | --- |
 | `VCODE-PARSE-001` | `RejectsMalformedSyntax` | V-Code | 缺少分號、區塊結尾與不支援字元 | 回傳語法診斷且不會卡住解析器 | 已自動化 |
 | `VCODE-EXEC-004` | `RejectsRuntimeFailures` | V-Code | 函數參數數量不符、未定義變數、除以零 | 執行失敗並回傳可讀診斷 | 已自動化 |
-| `VCODE-EXEC-005` | — | V-Code | 超過遞迴深度與指令數上限 | 安全中止，且不影響 Unity 主執行緒 | 待補／高 |
+| `VCODE-EXEC-005` | `RejectsAnEmptyLoopThatExceedsTheInstructionLimit` | V-Code | 超過指令數上限的空迴圈 | 安全中止，且不影響 Unity 主執行緒 | 已自動化 |
 | `VCODE-SYS-001` | `EmitsSystemCommands` | V-Code | `SHIELD(true)` 與 `SYSTEM.RESET()` | 正確輸出對應的 `SystemCommand` | 已自動化 |
-| `RENDER-UNIT-001` | `CentersTheTurtleForAnyCanvasResolution` | Rendering | 以非 512 解析度建立畫布 | 初始筆位置位於畫布中心 | 已自動化 |
+| `RENDER-UNIT-001` | `CentersTheTurtleForAnyCanvasResolution` | Rendering | 以非 64 解析度建立畫布 | 初始筆位置為邏輯座標 `(0, 0)`，即畫布幾何中心 | 已自動化 |
 | `RENDER-UNIT-002` | `RasterizesShapesAndClipsLinesOutsideTheCanvas` | Rendering | `MOVE`、`TURN`、`WIDTH`、圓形與邊界外繪圖 | 畫布產生正確像素且不越界 | 已自動化 |
+| `RENDER-UNIT-003` | `PenalizesPixelsDrawnOutsideTheTarget` | Rendering | 在目標像素外另畫一個像素 | 額外像素會降低重合度 | 已自動化 |
+| `LEVEL-UNIT-001` | `DoesNotCompleteAConfigurationWithoutATarget` | Level | 缺少目標圖的關卡設定 | 即使收到 100% 也不可通關 | 已自動化 |
 | `RENDER-INT-001` | — | V-Code / Rendering | V-Code 範例繪製正方形 | `IDEEditorController` 成功將命令送至 `CanvasRenderer` | 待補／高 |
 | `LEVEL-INT-001` | — | Level | 成功渲染後提交畫布 | 正確更新重合度，並依門檻判定通關 | 待補／高 |
 | `ANOMALY-INT-001` | — | Anomaly | 提交 `SHIELD`、`RESET` 系統命令 | 正確解除對應異變 | 待補／中 |

@@ -1,16 +1,16 @@
 using GlitchCompiler.Core;
 using GlitchCompiler.Level;
-using GlitchCompiler.Rendering;
 using GlitchCompiler.VCode;
 using TMPro;
 using UnityEngine;
+using GameCanvasRenderer = GlitchCompiler.Rendering.CanvasRenderer;
 
 namespace GlitchCompiler.UI
 {
     public sealed class IDEEditorController : MonoBehaviour
     {
         [SerializeField] private TMP_InputField input;
-        [SerializeField] private CanvasRenderer renderer;
+        [SerializeField] private GameCanvasRenderer renderer;
         [SerializeField] private LevelSessionController levelSession;
 
         public string Code
@@ -31,19 +31,26 @@ namespace GlitchCompiler.UI
             ApplicationBootstrap.Events?.Publish(new CompilationFinished(parsed.Diagnostics));
             if (!parsed.Success)
             {
+                levelSession?.SubmitCompilation(CompilationSubmission.Failed());
                 return;
             }
 
             var executed = new VCodeInterpreter().Execute(parsed.Program);
             ApplicationBootstrap.Events?.Publish(new CompilationFinished(executed.Diagnostics));
-            if (!executed.Success || renderer == null)
+            if (!executed.Success)
             {
+                levelSession?.SubmitCompilation(CompilationSubmission.Failed());
+                return;
+            }
+
+            if (renderer == null)
+            {
+                levelSession?.SubmitCompilation(CompilationSubmission.Successful(null, executed.SystemCommands));
                 return;
             }
 
             renderer.Render(executed.DrawCommands);
-            levelSession?.SubmitSystemCommands(executed.SystemCommands);
-            levelSession?.SubmitRenderedCanvas(renderer.CanvasTexture);
+            levelSession?.SubmitCompilation(CompilationSubmission.Successful(renderer.CanvasTexture, executed.SystemCommands));
         }
 
         public void NotifyChanged()

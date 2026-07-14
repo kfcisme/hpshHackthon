@@ -1,1 +1,17 @@
-namespace GlitchCompiler.Anomalies { public sealed class CanvasMaskAnomaly:IAnomaly { private AnomalyContext context; public string Id=>"canvas-mask"; public void OnTrigger(AnomalyContext value){context=value;context.ShowOverlay("畫布遮罩","在程式最前方加入 SHIELD(true);。");} public bool CheckResolved()=>context.ShieldEnabled(); public void OnResolve()=>context.HideOverlay(); public void OnCleanup(){} } }
+namespace GlitchCompiler.Anomalies
+{
+    public sealed class CanvasMaskAnomaly : IAnomaly
+    {
+        private AnomalyContext context;
+        public string Id => "canvas-mask";
+        public bool CanTrigger(AnomalyContext value) => value != null;
+        public void OnTrigger(AnomalyContext value)
+        {
+            context = value;
+            context.ShowOverlay("畫布遮罩", "在程式最前方加入 SHIELD(true);。");
+        }
+        public bool CheckResolved() => context.ShieldEnabled();
+        public void OnResolve() => context.HideOverlay();
+        public void OnCleanup() => context?.HideOverlay();
+    }
+}

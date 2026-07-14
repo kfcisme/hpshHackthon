@@ -1,2 +1,12 @@
 using UnityEngine;
-namespace GlitchCompiler.Rendering { public static class TargetImageLoader { public static bool IsValid(Texture2D target) => target!=null&&target.width==512&&target.height==512; } }
+namespace GlitchCompiler.Rendering
+{
+    public static class TargetImageLoader
+    {
+        public const int CanvasResolution = 64;
+
+        public static bool IsValid(Texture2D target) =>
+            target != null && target.isReadable &&
+            target.width == CanvasResolution && target.height == CanvasResolution;
+    }
+}
